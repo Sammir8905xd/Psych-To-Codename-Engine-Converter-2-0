@@ -3,24 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Psych → Codename Engine Converter</title>
+  <title>Psych → Codename Engine Stage Converter</title>
   
-  <!-- Open Graph Meta Tags -->
   <meta property="og:title" content="Psych → Codename Engine Converter">
-  <meta property="og:description" content="Convert your Psych Engine stage files to Codename Engine XML format with organized layers. Upload JSON and LUA files to get started.">
-  <meta property="og:image" content="https://files.catbox.moe/8kzuby.png">
-  <meta property="og:url" content="">
+  <meta property="og:description" content="Advanced Tool: Convert your Psych Engine stage files to Codename Engine XML format with robust math evaluation, layer organization, and property parsing.">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Psych → Codename Engine Converter">
+  <meta property="og:image" content="https://files.catbox.moe/8kzuby.png">
+
   
-  <!-- Twitter Card Meta Tags -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Psych → Codename Engine Converter">
-  <meta name="twitter:description" content="Convert your Psych Engine stage files to Codename Engine XML format with organized layers.">
-  <meta name="twitter:image" content="https://files.catbox.moe/8kzuby.png">
-  
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-main: #0B0E14;
+      --bg-panel: #151A22;
+      --accent-1: #FF3366;
+      --accent-2: #FF9933;
+      --border-color: #2A3241;
+      --text-main: #E2E8F0;
+      --text-muted: #8B949E;
+      --success: #3FB950;
+      --error: #F85149;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -28,458 +32,592 @@
     }
 
     body {
-      font-family: 'Space Mono', monospace;
-      background: linear-gradient(135deg, #1a1a2e, #16213e);
-      color: #e94560;
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg-main);
+      background-image: 
+        radial-gradient(circle at 15% 50%, rgba(255, 51, 102, 0.05), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(255, 153, 51, 0.05), transparent 25%);
+      color: var(--text-main);
       min-height: 100vh;
-      padding: 2rem;
       display: flex;
       flex-direction: column;
       align-items: center;
+      padding: 2rem;
     }
 
     .container {
-      max-width: 800px;
+      max-width: 1000px;
       width: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: 2rem;
-      box-shadow: 0 20px 40px rgba(233, 69, 96, 0.1);
-      border: 1px solid rgba(233, 69, 96, 0.2);
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 1rem;
     }
 
     h1 {
-      text-align: center;
-      margin-bottom: 2rem;
-      background: linear-gradient(45deg, #e94560, #f27121);
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      background-clip: text;
-      font-size: 1.8rem;
+      letter-spacing: -0.5px;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      margin-top: 0.5rem;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+
+    /* Drag and Drop Zones */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border-color);
+      border-radius: 8px;
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: rgba(0,0,0,0.2);
+      position: relative;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent-1);
+      background: rgba(255, 51, 102, 0.05);
+    }
+
+    .dropzone.has-file {
+      border-color: var(--success);
+      border-style: solid;
+      background: rgba(63, 185, 80, 0.05);
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .dropzone-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .dropzone-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .dropzone.has-file .dropzone-text {
+      color: var(--success);
       font-weight: 700;
     }
 
-    .file-input-wrapper {
-      position: relative;
-      margin: 1rem 0;
-      overflow: hidden;
-      display: inline-block;
-      width: 100%;
-    }
-
-    .file-input {
-      position: absolute;
-      left: -9999px;
-    }
-
-    .file-input-label {
-      display: block;
-      padding: 1rem;
-      background: linear-gradient(135deg, #0f3460, #533483);
-      color: white;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-align: center;
-      border: 2px solid transparent;
-    }
-
-    .file-input-label:hover {
-      background: linear-gradient(135deg, #533483, #0f3460);
-      border-color: #e94560;
-      transform: translateY(-2px);
-    }
-
-    .file-input-label.has-file {
-      background: linear-gradient(135deg, #e94560, #f27121);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.8; }
-    }
-
-    .button-group {
+    /* Controls */
+    .controls {
       display: flex;
       gap: 1rem;
-      margin: 2rem 0;
     }
 
     button {
       flex: 1;
-      padding: 1rem 2rem;
-      background: linear-gradient(135deg, #e94560, #f27121);
-      color: white;
+      padding: 1rem;
       border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      font-family: 'Space Mono', monospace;
+      border-radius: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
       font-weight: 700;
-      transition: all 0.3s ease;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary {
+      background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+      color: white;
+      box-shadow: 0 4px 15px rgba(255, 51, 102, 0.3);
+    }
+    
+    .btn-secondary {
+      background: var(--border-color);
+      color: var(--text-main);
+    }
+
+    /* Output Area */
+    .editor-layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .code-container {
       position: relative;
+      border-radius: 8px;
       overflow: hidden;
+      border: 1px solid var(--border-color);
     }
 
-    button:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 20px rgba(233, 69, 96, 0.3);
-    }
-
-    button:active {
-      transform: translateY(-1px);
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    button::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-      transition: left 0.5s;
-    }
-
-    button:hover::before {
-      left: 100%;
+    .code-header {
+      background: #0D1117;
+      padding: 0.5rem 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
     }
 
     textarea {
       width: 100%;
-      height: 400px;
-      background: #0a0a0a;
-      color: #00ff41;
-      font-family: 'Space Mono', monospace;
+      height: 500px;
+      background: #0D1117;
+      color: #C9D1D9;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.9rem;
-      border: 2px solid #333;
-      border-radius: 10px;
+      border: none;
       padding: 1rem;
       resize: vertical;
-      transition: border-color 0.3s ease;
-    }
-
-    textarea:focus {
       outline: none;
-      border-color: #e94560;
-      box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+      line-height: 1.5;
     }
 
-    .status {
-      margin: 1rem 0;
+    /* Console Log */
+    .console {
+      background: #0D1117;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      height: 500px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .console-header {
+      padding: 0.5rem 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .console-body {
       padding: 1rem;
-      border-radius: 10px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      flex: 1;
+    }
+
+    .log-item { margin-bottom: 0.5rem; line-height: 1.4; }
+    .log-info { color: #58A6FF; }
+    .log-success { color: var(--success); }
+    .log-error { color: var(--error); }
+    .log-warn { color: #D29922; }
+
+    .credits {
       text-align: center;
-      font-weight: 700;
-      opacity: 0;
-      transform: translateY(-10px);
-      transition: all 0.3s ease;
+      margin-top: 2rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
     }
-
-    .status.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .status.success {
-      background: rgba(46, 204, 113, 0.2);
-      border: 1px solid #2ecc71;
-      color: #2ecc71;
-    }
-
-    .status.error {
-      background: rgba(231, 76, 60, 0.2);
-      border: 1px solid #e74c3c;
-      color: #e74c3c;
+    
+    .credits a {
+      color: var(--accent-1);
+      text-decoration: none;
+      font-weight: bold;
     }
 
     @media (max-width: 768px) {
-      .button-group {
-        flex-direction: column;
-      }
-      
-      h1 {
-        font-size: 1.5rem;
-      }
-      
-      .container {
-        padding: 1rem;
+      .upload-grid, .editor-layout {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎵 Psych → Codename Engine Converter</h1>
+    <header>
+      <h1>Codename Engine Stage Port</h1>
+      <p class="subtitle">Advanced Lua Parsing & Math Evaluation System</p>
+    </header>
 
-    <div class="file-input-wrapper">
-      <input type="file" id="jsonInput" accept=".json" class="file-input">
-      <label for="jsonInput" class="file-input-label" id="jsonLabel">
-        📁 Select Stage JSON file
-      </label>
+    <div class="panel">
+      <div class="upload-grid">
+        <div class="dropzone" id="jsonDropzone">
+          <input type="file" id="jsonInput" accept=".json">
+          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-text" id="jsonLabel">Select or Drop JSON</div>
+        </div>
+        <div class="dropzone" id="luaDropzone">
+          <input type="file" id="luaInput" accept=".lua">
+          <div class="dropzone-icon">📜</div>
+          <div class="dropzone-text" id="luaLabel">Select or Drop LUA</div>
+        </div>
+      </div>
+
+      <div class="controls" style="margin-top: 1.5rem;">
+        <button class="btn-primary" id="convertBtn" onclick="processConversion()" disabled>⚙️ Build XML</button>
+        <button class="btn-secondary" id="downloadBtn" onclick="downloadXML()" disabled>💾 Export XML</button>
+      </div>
     </div>
 
-    <div class="file-input-wrapper">
-      <input type="file" id="luaInput" accept=".lua" class="file-input">
-      <label for="luaInput" class="file-input-label" id="luaLabel">
-        📜 Select Stage LUA file
-      </label>
+    <div class="editor-layout">
+      <div class="code-container panel" style="padding: 0;">
+        <div class="code-header">
+          <span>stage.xml</span>
+          <span>Codename Format</span>
+        </div>
+        <textarea id="outputXML" placeholder="<!-- Output will generate here -->" spellcheck="false" readonly></textarea>
+      </div>
+
+      <div class="console panel" style="padding: 0;">
+        <div class="console-header">>_ Parser Output</div>
+        <div class="console-body" id="consoleLog">
+          <div class="log-item log-info">System initialized. Waiting for files...</div>
+        </div>
+      </div>
     </div>
 
-    <div class="status" id="status"></div>
-
-    <div class="button-group">
-      <button onclick="convert()" id="convertBtn" disabled>✨ Convert to Codename</button>
-      <button onclick="download()" id="downloadBtn" disabled>💾 Download XML</button>
-    </div>
-
-    <textarea id="output" placeholder="🚀 Your converted .xml file with organized layers will appear here...
-
-💡 Upload both files (JSON and LUA) to start conversion"></textarea>
-    
-    <div style="text-align: center; margin-top: 1rem; opacity: 0.7; font-size: 0.9rem;">
-      Created by <span style="color: #e94560; font-weight: 700;">OranGy</span>
+    <div class="credits">
+      Engineered by <a href="https://github.com/Sammir8905xdd" target="_blank">OranGy</a>
     </div>
   </div>
 
-  <audio id="clickSound" preload="auto">
-    <source src="/mouse-click-290204.mp3" type="audio/mpeg">
-  </audio>
-
-  <audio id="elevatorMusic" preload="auto" loop>
-    <source src="/Elevator Music.mp3" type="audio/mpeg">
-  </audio>
-
   <script>
-    let jsonContent = null;
-    let luaContent = null;
-    let stageName = "stage_codename";
-    let musicPlaying = false;
+    // --- System State ---
+    const State = {
+      json: null,
+      lua: null,
+      fileName: "stage"
+    };
 
-    // Start background music immediately
-    window.addEventListener('load', function() {
-      const elevatorMusic = document.getElementById('elevatorMusic');
-      elevatorMusic.volume = 0.2;
-      elevatorMusic.play().catch(() => {
-        // Auto-play might be blocked, music will start on first user interaction
-      });
-      musicPlaying = true;
-    });
-
-    function playSound() {
-      const clickSound = document.getElementById('clickSound');
-      clickSound.currentTime = 0;
-      clickSound.play();
-    }
-
-    function showStatus(message, type) {
-      const status = document.getElementById('status');
-      status.textContent = message;
-      status.className = `status ${type} show`;
-      setTimeout(() => {
-        status.classList.remove('show');
-      }, 3000);
-    }
-
-    function updateButtons() {
-      const convertBtn = document.getElementById('convertBtn');
-      const downloadBtn = document.getElementById('downloadBtn');
-      const hasFiles = jsonContent && luaContent;
-      const hasOutput = document.getElementById('output').value.trim();
-      
-      convertBtn.disabled = !hasFiles;
-      downloadBtn.disabled = !hasOutput;
-    }
-
-    document.getElementById('jsonInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      const label = document.getElementById('jsonLabel');
-      
-      if (file) {
-        stageName = file.name.replace(/\.[^/.]+$/, "");
-        label.textContent = `✅ ${file.name}`;
-        label.classList.add('has-file');
-        playSound();
+    // --- UI Logic ---
+    const UI = {
+      log: (msg, type = 'info') => {
+        const consoleEl = document.getElementById('consoleLog');
+        const entry = document.createElement('div');
+        entry.className = `log-item log-${type}`;
         
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            jsonContent = JSON.parse(reader.result);
-            showStatus('✅ JSON file loaded successfully', 'success');
-            updateButtons();
-          } catch (error) {
-            showStatus('❌ Error reading JSON file', 'error');
-            jsonContent = null;
-            updateButtons();
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+        entry.textContent = `[${timestamp}] ${msg}`;
+        
+        consoleEl.appendChild(entry);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      },
+      clearLog: () => {
+        document.getElementById('consoleLog').innerHTML = '';
+      },
+      updateButtons: () => {
+        document.getElementById('convertBtn').disabled = !(State.json && State.lua);
+        document.getElementById('downloadBtn').disabled = !document.getElementById('outputXML').value.trim();
+      },
+      handleFileDrop: (dropzoneId, inputId, labelId, type) => {
+        const dropzone = document.getElementById(dropzoneId);
+        const input = document.getElementById(inputId);
+        const label = document.getElementById(labelId);
+
+        const processFile = (file) => {
+          if (!file) return;
+          const ext = file.name.split('.').pop().toLowerCase();
+          if (ext !== type) {
+            UI.log(`Invalid file type. Expected .${type}`, 'error');
+            return;
           }
-        };
-        reader.readAsText(file);
-      }
-    });
 
-    document.getElementById('luaInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      const label = document.getElementById('luaLabel');
-      
-      if (file) {
-        if (!stageName || stageName === "stage_codename") {
-          stageName = file.name.replace(/\.[^/.]+$/, "");
+          if (type === 'json') State.fileName = file.name.replace('.json', '');
+          
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (type === 'json') {
+              try {
+                // Remove JSON comments natively used in Psych
+                const cleanStr = e.target.result.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
+                State.json = JSON.parse(cleanStr);
+                label.textContent = file.name;
+                dropzone.classList.add('has-file');
+                UI.log(`Parsed JSON: ${file.name}`, 'success');
+              } catch (err) {
+                State.json = null;
+                dropzone.classList.remove('has-file');
+                label.textContent = "JSON Syntax Error!";
+                UI.log(`JSON Parsing Failed: Check for syntax errors.`, 'error');
+              }
+            } else if (type === 'lua') {
+              State.lua = e.target.result;
+              label.textContent = file.name;
+              dropzone.classList.add('has-file');
+              UI.log(`Loaded LUA: ${file.name}`, 'success');
+            }
+            UI.updateButtons();
+          };
+          reader.readAsText(file);
+        };
+
+        // Click Upload
+        input.addEventListener('change', (e) => processFile(e.target.files[0]));
+
+        // Drag & Drop
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropzone.classList.remove('dragover');
+          processFile(e.dataTransfer.files[0]);
+        });
+      }
+    };
+
+    // Initialize Dropzones
+    UI.handleFileDrop('jsonDropzone', 'jsonInput', 'jsonLabel', 'json');
+    UI.handleFileDrop('luaDropzone', 'luaInput', 'luaLabel', 'lua');
+
+
+    // --- Engine Math & Logic ---
+    const ParserLogic = {
+      // Safely evaluates math expressions in Lua parameters (e.g. "screenWidth / 2 - 100")
+      evaluateMath: (expression) => {
+        try {
+          if (!expression) return "0";
+          // Replace common FNF variables
+          let parsed = expression
+            .replace(/screenWidth/g, '1280')
+            .replace(/screenHeight/g, '720');
+            
+          // Strip dangerous characters, keeping only numbers and math operators
+          parsed = parsed.replace(/[^0-9+\-*/(). ]/g, '');
+          
+          if (!parsed.trim()) return "0";
+          
+          // Evaluate
+          const result = Number(new Function('return ' + parsed)());
+          // Return clean string, dropping decimal if it's an integer
+          return Number.isInteger(result) ? result.toString() : result.toFixed(2).replace(/\.?0+$/, '');
+        } catch (e) {
+          UI.log(`Math Eval Error on '${expression}', defaulted to 0`, 'warn');
+          return "0";
         }
-        label.textContent = `✅ ${file.name}`;
-        label.classList.add('has-file');
-        playSound();
+      },
+
+      extractSprites: (luaCode) => {
+        const sprites = new Map();
+        let addOrder = 0;
+
+        // 1. Capture Sprite Declarations (Standard & Animated)
+        // Regex captures everything inside the arguments allowing math formulas
+        const declarationRegex = /(?:makeLuaSprite|makeAnimatedLuaSprite)\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*([^,]+)\s*,\s*([^)]+)\)/g;
         
-        const reader = new FileReader();
-        reader.onload = () => {
-          luaContent = reader.result;
-          showStatus('✅ LUA file loaded successfully', 'success');
-          updateButtons();
-        };
-        reader.readAsText(file);
-      }
-    });
-
-    function extractSpritesFromLua(luaText) {
-      const regex = /makeLuaSprite\(['"](\w+)['"],\s*['"]([^'"]+)['"],\s*(-?\d+),\s*(-?\d+)/g;
-      const scaleRegex = /scaleObject\(['"](\w+)['"],\s*([\d.]+),\s*([\d.]+)\)/g;
-      const scrollRegex = /setScrollFactor\(['"](\w+)['"],\s*([\d.]+),\s*([\d.]+)\)/g;
-
-      const sprites = [];
-      const scales = {};
-      const scrolls = {};
-
-      for (const match of luaText.matchAll(scaleRegex)) {
-        scales[match[1]] = `${match[2]},${match[3]}`;
-      }
-      for (const match of luaText.matchAll(scrollRegex)) {
-        scrolls[match[1]] = `${match[2]},${match[3]}`;
-      }
-
-      let index = 0;
-      for (const match of luaText.matchAll(regex)) {
-        const name = match[1];
-        const path = match[2];
-        const x = match[3];
-        const y = match[4];
-        const scale = scales[name] || "1,1";
-        const scroll = scrolls[name] || "1,1";
-        let layer = "mid";
-
-        if (index < 3) layer = "bg";
-        else if (index > 5) layer = "fg";
-
-        sprites.push({ line: `<sprite sprite="${path}" name="${name}" pos="${x},${y}" scale="${scale}" scroll="${scroll}" layer="${layer}"/>`, order: index, layer });
-        index++;
-      }
-
-      return sprites;
-    }
-
-    function convert() {
-      if (!jsonContent || !luaContent) {
-        showStatus('❌ Missing files for conversion', 'error');
-        return;
-      }
-
-      playSound();
-      // charscale
-      const charScales = {
-        bf: "1.0",
-        gf: "1.0",
-        dad: "1.0"
-      };
-
-      const charScaleRegex = /scaleObject\(['"](bf|gf|dad)['"],\s*([\d.]+),\s*([\d.]+)\)/g;
-      for (const match of luaContent.matchAll(charScaleRegex)) {
-        const char = match[1];
-        const scaleX = parseFloat(match[2]).toFixed(2);
-        // const scaleY = parseFloat(match[3]).toFixed(2); ← ignorado
-        charScales[char] = scaleX; // Usamos solo el X para Codename
-      }
-      
-      // Don't restart music during conversion, let it play continuously
-      const elevatorMusic = document.getElementById('elevatorMusic');
-      if (!musicPlaying) {
-        elevatorMusic.volume = 0.2;
-        elevatorMusic.play();
-        musicPlaying = true;
-      }
-
-      // Simulate processing time for dramatic effect
-      setTimeout(() => {
-        const zoom = jsonContent.defaultZoom || 1.0;
-        const scrollspeed = jsonContent.camera_speed || 1.0;
-        const bfPos = jsonContent.boyfriend || [0,0];
-        const gfPos = jsonContent.girlfriend || [0,0];
-        const dadPos = jsonContent.opponent || [0,0];
-
-        const sprites = extractSpritesFromLua(luaContent);
-
-        // Organizar por capa
-        const layers = {
-          bg: [],
-          mid: [],
-          fg: [],
-          chars: []
-        };
-
-        for (const s of sprites) {
-          if (layers[s.layer]) layers[s.layer].push(s.line);
-          else layers.mid.push(s.line);
+        let decMatch;
+        while ((decMatch = declarationRegex.exec(luaCode)) !== null) {
+          const tag = decMatch[1];
+          sprites.set(tag, {
+            tag: tag,
+            path: decMatch[2],
+            x: ParserLogic.evaluateMath(decMatch[3]),
+            y: ParserLogic.evaluateMath(decMatch[4]),
+            scale: "1,1",
+            scroll: "1,1",
+            alpha: null,
+            antialiasing: null,
+            blend: null,
+            layer: "bg", // Default
+            order: 999
+          });
         }
 
-        layers.chars.push(`<gf pos="${gfPos[0]},${gfPos[1]}" scale="${charScales.gf}" scroll="1,1" layer="chars"/>`);
-        layers.chars.push(`<dad pos="${dadPos[0]},${dadPos[1]}" scale="${charScales.dad}" scroll="1,1" layer="chars"/>`);
-        layers.chars.push(`<bf pos="${bfPos[0]},${bfPos[1]}" scale="${charScales.bf}" scroll="1,1" layer="chars"/>`);
+        // 2. Map Scales
+        const scaleRegex = /scaleObject\s*\(\s*['"]([^'"]+)['"]\s*,\s*([^,]+)\s*,\s*([^)]+)\)/g;
+        let scaleMatch;
+        while ((scaleMatch = scaleRegex.exec(luaCode)) !== null) {
+          const spr = sprites.get(scaleMatch[1]);
+          if (spr) {
+            const scX = ParserLogic.evaluateMath(scaleMatch[2]);
+            const scY = ParserLogic.evaluateMath(scaleMatch[3]);
+            spr.scale = `${scX},${scY}`;
+          }
+        }
 
-        const xml = `<!DOCTYPE codename-engine-stage>
-<stage zoom="${zoom}" scrollspeed="${scrollspeed}">
-\t<layer name="bg"/>
-\t<layer name="mid"/>
-\t<layer name="fg"/>
-\t<layer name="chars"/>
+        // 3. Map Scroll Factors
+        const scrollRegex = /setScrollFactor\s*\(\s*['"]([^'"]+)['"]\s*,\s*([^,]+)\s*,\s*([^)]+)\)/g;
+        let scrollMatch;
+        while ((scrollMatch = scrollRegex.exec(luaCode)) !== null) {
+          const spr = sprites.get(scrollMatch[1]);
+          if (spr) {
+            const sfX = ParserLogic.evaluateMath(scrollMatch[2]);
+            const sfY = ParserLogic.evaluateMath(scrollMatch[3]);
+            spr.scroll = `${sfX},${sfY}`;
+          }
+        }
 
-\t<combo/>
-\t${layers.bg.join("\n\t")}
-\t${layers.mid.join("\n\t")}
-\t${layers.fg.join("\n\t")}
-\t${layers.chars.join("\n\t")}
-</stage>`;
-
-        document.getElementById("output").value = xml;
-        showStatus('🎉 Conversion completed successfully!', 'success');
-        updateButtons();
+        // 4. Extract Advanced Properties (Alpha, Antialiasing, BlendMode)
+        const propRegex = /setProperty\s*\(\s*['"]([^'"]+)\.([^'"]+)['"]\s*,\s*([^)]+)\)/g;
+        let propMatch;
+        while ((propMatch = propRegex.exec(luaCode)) !== null) {
+          const tag = propMatch[1];
+          const property = propMatch[2].toLowerCase();
+          const value = propMatch[3].trim().toLowerCase();
+          
+          const spr = sprites.get(tag);
+          if (spr) {
+            if (property === 'alpha') spr.alpha = ParserLogic.evaluateMath(value);
+            if (property === 'antialiasing') spr.antialiasing = value === 'false' ? "false" : null;
+          }
+        }
         
-        // Don't stop music, let it continue playing
-      }, 1500);
+        // Blend modes
+        const blendRegex = /setBlendMode\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)/g;
+        let blendMatch;
+        while ((blendMatch = blendRegex.exec(luaCode)) !== null) {
+          const spr = sprites.get(blendMatch[1]);
+          if (spr) spr.blend = blendMatch[2].toLowerCase();
+        }
+
+        // 5. Detect Layer Addition
+        const addRegex = /addLuaSprite\s*\(\s*['"]([^'"]+)['"]\s*,\s*(true|false)\s*\)/g;
+        let addMatch;
+        while ((addMatch = addRegex.exec(luaCode)) !== null) {
+          const spr = sprites.get(addMatch[1]);
+          if (spr) {
+            spr.order = addOrder++;
+            spr.layer = addMatch[2] === 'true' ? 'fg' : 'bg';
+          }
+        }
+
+        // Return sorted array
+        return Array.from(sprites.values()).sort((a, b) => a.order - b.order);
+      },
+
+      getCharacterScales: (luaCode) => {
+        const scales = { bf: "1", gf: "1", dad: "1" };
+        const charScaleRegex = /scaleObject\s*\(\s*['"](bf|boyfriend|gf|girlfriend|dad|opponent)['"]\s*,\s*([^,]+)\s*,\s*([^)]+)\)/g;
+        
+        let match;
+        while ((match = charScaleRegex.exec(luaCode)) !== null) {
+          const char = match[1].toLowerCase();
+          const val = ParserLogic.evaluateMath(match[2]);
+          if (char.includes('bf') || char.includes('boy')) scales.bf = val;
+          if (char.includes('gf') || char.includes('girl')) scales.gf = val;
+          if (char.includes('dad') || char.includes('opp')) scales.dad = val;
+        }
+        return scales;
+      }
+    };
+
+
+    // --- Core Conversion ---
+    function processConversion() {
+      if (!State.json || !State.lua) return;
+      UI.clearLog();
+      UI.log("Initiating compiler...", "info");
+
+      try {
+        // Core Stage Vars
+        const zoom = State.json.defaultZoom ?? 1.0;
+        const speed = State.json.camera_speed ?? 1.0;
+        
+        // Positions (Default 0,0 if missing)
+        const posBF = State.json.boyfriend || [0,0];
+        const posGF = State.json.girlfriend || [0,0];
+        const posDad = State.json.opponent || [0,0];
+
+        // Process LUA Data
+        UI.log("Analyzing Lua matrices and calculating algebra...", "info");
+        const charScales = ParserLogic.getCharacterScales(State.lua);
+        const elements = ParserLogic.extractSprites(State.lua);
+
+        UI.log(`Found ${elements.length} Lua objects.`, "info");
+
+        // Categorize for XML
+        const layers = { bg: [], fg: [] };
+        
+        elements.forEach(spr => {
+          let attributes = `sprite="${spr.path}" name="${spr.tag}" pos="${spr.x},${spr.y}"`;
+          
+          if (spr.scale !== "1,1") attributes += ` scale="${spr.scale}"`;
+          if (spr.scroll !== "1,1") attributes += ` scroll="${spr.scroll}"`;
+          if (spr.alpha !== null && spr.alpha !== "1") attributes += ` alpha="${spr.alpha}"`;
+          if (spr.antialiasing === "false") attributes += ` antialiasing="false"`;
+          if (spr.blend !== null) attributes += ` blend="${spr.blend}"`;
+          
+          attributes += ` layer="${spr.layer}"`;
+
+          const node = `<sprite ${attributes}/>`;
+          layers[spr.layer] ? layers[spr.layer].push(node) : layers.bg.push(node);
+          
+          UI.log(`Mapped Object: ${spr.tag} -> [Layer: ${spr.layer}]`, "success");
+        });
+
+        // Construct Codename Engine XML format meticulously 
+        let xml = `<!DOCTYPE codename-engine-stage>\n<stage zoom="${zoom}" scrollspeed="${speed}">\n`;
+        
+        // CNE standard layer definitions
+        xml += `\t<layer name="bg"/>\n\t<layer name="mid"/>\n\t<layer name="fg"/>\n\t<layer name="chars"/>\n\n`;
+        
+        // Combo definition (required by CNE)
+        xml += `\t<combo/>\n\n`;
+
+        if (layers.bg.length) xml += `\t<!-- Background Elements -->\n\t` + layers.bg.join("\n\t") + "\n\n";
+        
+        xml += `\t<!-- Characters -->\n`;
+        xml += `\t<gf pos="${posGF[0]},${posGF[1]}" scale="${charScales.gf},${charScales.gf}" scroll="1,1" layer="chars"/>\n`;
+        xml += `\t<dad pos="${posDad[0]},${posDad[1]}" scale="${charScales.dad},${charScales.dad}" scroll="1,1" layer="chars"/>\n`;
+        xml += `\t<bf pos="${posBF[0]},${posBF[1]}" scale="${charScales.bf},${charScales.bf}" scroll="1,1" layer="chars"/>\n\n`;
+
+        if (layers.fg.length) xml += `\t<!-- Foreground Elements -->\n\t` + layers.fg.join("\n\t") + "\n";
+
+        xml += `</stage>`;
+
+        // Output
+        document.getElementById('outputXML').value = xml;
+        UI.updateButtons();
+        UI.log("Compilation Success! XML ready for Codename Engine.", "success");
+
+      } catch (err) {
+        UI.log(`Fatal Error during generation: ${err.message}`, "error");
+        console.error(err);
+      }
     }
 
-    function download() {
-      const text = document.getElementById("output").value;
-      if (!text.trim()) {
-        showStatus('❌ No content to download', 'error');
-        return;
-      }
-      
-      playSound();
-      const blob = new Blob([text], { type: "application/xml" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = stageName + ".xml";
+    function downloadXML() {
+      const data = document.getElementById('outputXML').value;
+      if (!data) return;
+
+      const blob = new Blob([data], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${State.fileName}.xml`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
-      showStatus('💾 File downloaded successfully!', 'success');
+      UI.log("File exported successfully.", "success");
     }
-
-    // Initialize button states
-    updateButtons();
   </script>
 </body>
 </html>
