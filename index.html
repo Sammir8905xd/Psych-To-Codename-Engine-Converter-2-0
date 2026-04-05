@@ -10,7 +10,6 @@
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://files.catbox.moe/8kzuby.png">
 
-  
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -117,6 +116,7 @@
       height: 100%;
       opacity: 0;
       cursor: pointer;
+      z-index: 10;
     }
 
     .dropzone-icon {
@@ -150,11 +150,10 @@
       font-size: 1.1rem;
       font-weight: 700;
       cursor: pointer;
-      transition: transform 0.1s, opacity 0.2s;
+      transition: transform 0.1s, opacity 0.2s, box-shadow 0.2s;
     }
 
     button:active { transform: scale(0.98); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .btn-primary {
       background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
@@ -162,9 +161,17 @@
       box-shadow: 0 4px 15px rgba(255, 51, 102, 0.3);
     }
     
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(255, 51, 102, 0.5);
+    }
+    
     .btn-secondary {
       background: var(--border-color);
       color: var(--text-main);
+    }
+    
+    .btn-secondary:hover {
+      background: #3A455A;
     }
 
     /* Output Area */
@@ -281,8 +288,8 @@
       </div>
 
       <div class="controls" style="margin-top: 1.5rem;">
-        <button class="btn-primary" id="convertBtn" onclick="processConversion()" disabled>⚙️ Build XML</button>
-        <button class="btn-secondary" id="downloadBtn" onclick="downloadXML()" disabled>💾 Export XML</button>
+        <button class="btn-primary" id="convertBtn" onclick="processConversion()">⚙️ Build XML</button>
+        <button class="btn-secondary" id="downloadBtn" onclick="downloadXML()">💾 Export XML</button>
       </div>
     </div>
 
@@ -332,10 +339,6 @@
       clearLog: () => {
         document.getElementById('consoleLog').innerHTML = '';
       },
-      updateButtons: () => {
-        document.getElementById('convertBtn').disabled = !(State.json && State.lua);
-        document.getElementById('downloadBtn').disabled = !document.getElementById('outputXML').value.trim();
-      },
       handleFileDrop: (dropzoneId, inputId, labelId, type) => {
         const dropzone = document.getElementById(dropzoneId);
         const input = document.getElementById(inputId);
@@ -355,8 +358,11 @@
           reader.onload = (e) => {
             if (type === 'json') {
               try {
-                // Remove JSON comments natively used in Psych
-                const cleanStr = e.target.result.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
+                // 1. Remove JSON comments natively used in Psych
+                let cleanStr = e.target.result.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
+                // 2. Fix trailing commas (e.g. [1, 2,] -> [1, 2]) which cause browsers to throw an error
+                cleanStr = cleanStr.replace(/,\s*([\]}])/g, '$1');
+                
                 State.json = JSON.parse(cleanStr);
                 label.textContent = file.name;
                 dropzone.classList.add('has-file');
@@ -365,7 +371,7 @@
                 State.json = null;
                 dropzone.classList.remove('has-file');
                 label.textContent = "JSON Syntax Error!";
-                UI.log(`JSON Parsing Failed: Check for syntax errors.`, 'error');
+                UI.log(`JSON Parsing Failed: FNF Json is heavily corrupted.`, 'error');
               }
             } else if (type === 'lua') {
               State.lua = e.target.result;
@@ -373,7 +379,8 @@
               dropzone.classList.add('has-file');
               UI.log(`Loaded LUA: ${file.name}`, 'success');
             }
-            UI.updateButtons();
+            // Reset input value so the same file can be uploaded again if needed
+            input.value = '';
           };
           reader.readAsText(file);
         };
@@ -402,24 +409,19 @@
       // Safely evaluates math expressions in Lua parameters (e.g. "screenWidth / 2 - 100")
       evaluateMath: (expression) => {
         try {
-          if (!expression) return "0";
-          // Replace common FNF variables
+          if (!expression || expression === "") return "0";
+          
           let parsed = expression
             .replace(/screenWidth/g, '1280')
             .replace(/screenHeight/g, '720');
             
-          // Strip dangerous characters, keeping only numbers and math operators
           parsed = parsed.replace(/[^0-9+\-*/(). ]/g, '');
-          
           if (!parsed.trim()) return "0";
           
-          // Evaluate
           const result = Number(new Function('return ' + parsed)());
-          // Return clean string, dropping decimal if it's an integer
           return Number.isInteger(result) ? result.toString() : result.toFixed(2).replace(/\.?0+$/, '');
         } catch (e) {
-          UI.log(`Math Eval Error on '${expression}', defaulted to 0`, 'warn');
-          return "0";
+          return "0"; // Default failsafe
         }
       },
 
@@ -427,18 +429,18 @@
         const sprites = new Map();
         let addOrder = 0;
 
-        // 1. Capture Sprite Declarations (Standard & Animated)
-        // Regex captures everything inside the arguments allowing math formulas
-        const declarationRegex = /(?:makeLuaSprite|makeAnimatedLuaSprite)\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*,\s*([^,]+)\s*,\s*([^)]+)\)/g;
+        // 1. Capture Sprite Declarations (Extremely Forgiving RegEx)
+        // Solves Dummi's issue: X and Y are now optional, matches double or single quotes
+        const declarationRegex = /(?:makeLuaSprite|makeAnimatedLuaSprite)\s*\(\s*(['"])(.*?)\1\s*,\s*(['"])(.*?)\3(?:(?:,\s*([^,)]+))?(?:,\s*([^)]+))?)?\s*\)/g;
         
         let decMatch;
         while ((decMatch = declarationRegex.exec(luaCode)) !== null) {
-          const tag = decMatch[1];
+          const tag = decMatch[2]; // Group 2 is the Tag Name
           sprites.set(tag, {
             tag: tag,
-            path: decMatch[2],
-            x: ParserLogic.evaluateMath(decMatch[3]),
-            y: ParserLogic.evaluateMath(decMatch[4]),
+            path: decMatch[4], // Group 4 is the Path
+            x: ParserLogic.evaluateMath(decMatch[5]), // Group 5 is X (optional)
+            y: ParserLogic.evaluateMath(decMatch[6]), // Group 6 is Y (optional)
             scale: "1,1",
             scroll: "1,1",
             alpha: null,
@@ -473,7 +475,7 @@
           }
         }
 
-        // 4. Extract Advanced Properties (Alpha, Antialiasing, BlendMode)
+        // 4. Extract Advanced Properties (Alpha, Antialiasing)
         const propRegex = /setProperty\s*\(\s*['"]([^'"]+)\.([^'"]+)['"]\s*,\s*([^)]+)\)/g;
         let propMatch;
         while ((propMatch = propRegex.exec(luaCode)) !== null) {
@@ -488,16 +490,8 @@
           }
         }
         
-        // Blend modes
-        const blendRegex = /setBlendMode\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)/g;
-        let blendMatch;
-        while ((blendMatch = blendRegex.exec(luaCode)) !== null) {
-          const spr = sprites.get(blendMatch[1]);
-          if (spr) spr.blend = blendMatch[2].toLowerCase();
-        }
-
-        // 5. Detect Layer Addition
-        const addRegex = /addLuaSprite\s*\(\s*['"]([^'"]+)['"]\s*,\s*(true|false)\s*\)/g;
+        // 5. Detect Layer Addition (Foreground / Background)
+        const addRegex = /addLuaSprite\s*\(\s*['"]([^'"]+)['"](?:\s*,\s*(true|false))?\s*\)/g;
         let addMatch;
         while ((addMatch = addRegex.exec(luaCode)) !== null) {
           const spr = sprites.get(addMatch[1]);
@@ -507,7 +501,15 @@
           }
         }
 
-        // Return sorted array
+        // 6. Support Object Ordering Override (Z-Index fix)
+        const orderRegex = /setObjectOrder\s*\(\s*['"]([^'"]+)['"]\s*,\s*(\d+)\s*\)/g;
+        let orderMatch;
+        while ((orderMatch = orderRegex.exec(luaCode)) !== null) {
+          const spr = sprites.get(orderMatch[1]);
+          if (spr) spr.order = parseInt(orderMatch[2]);
+        }
+
+        // Return sorted array based on Z-Index or adding order
         return Array.from(sprites.values()).sort((a, b) => a.order - b.order);
       },
 
@@ -527,11 +529,20 @@
       }
     };
 
-
     // --- Core Conversion ---
     function processConversion() {
-      if (!State.json || !State.lua) return;
       UI.clearLog();
+      
+      // Verification
+      if (!State.json) {
+        UI.log("A valid JSON file is missing or corrupted.", "error");
+        return;
+      }
+      if (!State.lua) {
+        UI.log("A LUA script is missing.", "error");
+        return;
+      }
+
       UI.log("Initiating compiler...", "info");
 
       try {
@@ -550,6 +561,10 @@
         const elements = ParserLogic.extractSprites(State.lua);
 
         UI.log(`Found ${elements.length} Lua objects.`, "info");
+
+        if (elements.length === 0) {
+            UI.log("Warning: No sprites were detected in the Lua script. The output might be empty.", "warn");
+        }
 
         // Categorize for XML
         const layers = { bg: [], fg: [] };
@@ -593,7 +608,6 @@
 
         // Output
         document.getElementById('outputXML').value = xml;
-        UI.updateButtons();
         UI.log("Compilation Success! XML ready for Codename Engine.", "success");
 
       } catch (err) {
@@ -604,7 +618,10 @@
 
     function downloadXML() {
       const data = document.getElementById('outputXML').value;
-      if (!data) return;
+      if (!data) {
+        UI.log("Nothing to download. Please Build XML first.", "warn");
+        return;
+      }
 
       const blob = new Blob([data], { type: 'application/xml' });
       const url = URL.createObjectURL(blob);
